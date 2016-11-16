@@ -85,6 +85,8 @@ DEFINE_string(vertex_shader_filepath, "",
               "Filepath of the vertex shader.");
 DEFINE_string(fragment_shader_filepath, "",
               "Filepath of the fragment shader.");
+DEFINE_string(texture_filepath, "", 
+              "Filepath of the texture.");
 
 // Annonymous namespace for constants and helper functions.
 namespace {
@@ -287,7 +289,22 @@ GLuint LoadTexture(const std::string& texture_filepath) {
   // the values.
   // Also, OpenGL has the y-axis of the texture flipped.
   image.permute_axes("cxyz");
-  return 0;
+  GLuint texture_id;
+  glGenTextures(1, &texture_id);
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+  // We are configuring texture wrapper, each per dimension,s:x, t:y.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  // Define the interpolation behavior for this texture.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  /// Sending the texture information to the GPU.
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height,
+               0, GL_RGB, GL_UNSIGNED_BYTE, image.data());
+  // Generate a mipmap.
+  glGenerateMipmap(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  return texture_id;
 }
 
 // -------------------- End of Helper Functions --------------------------------
@@ -534,19 +551,23 @@ int main(int argc, char** argv) {
   GLuint vertex_buffer_object_id;
   GLuint vertex_array_object_id;
   GLuint element_buffer_object_id;
-  Eigen::MatrixXf vertices(6, 4);
+  Eigen::MatrixXf vertices(8, 4);
   // Vertex 0.
   vertices.block(0, 0, 3, 1) = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
   vertices.block(3, 0, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+  vertices.block(6, 0, 2, 1) = Eigen::Vector2f(0, 1);
   // Vertex 1.
   vertices.block(0, 1, 3, 1) = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
   vertices.block(3, 1, 3, 1) = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+  vertices.block(6, 1, 2, 1) = Eigen::Vector2f(0, 0);
   // Vertex 2.
   vertices.block(0, 2, 3, 1) = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
   vertices.block(3, 2, 3, 1) = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
+  vertices.block(6, 2, 2, 1) = Eigen::Vector2f(1, 1);
   // Vertex 3.
   vertices.block(0, 3, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
   vertices.block(3, 3, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+  vertices.block(6, 3, 2, 1) = Eigen::Vector2f(1, 0);
   std::vector<GLuint> indices = {
     0, 1, 3,  // First triangle.
     0, 3, 2,  // Second triangle.
@@ -559,6 +580,7 @@ int main(int argc, char** argv) {
                        &vertex_buffer_object_id,
                        &vertex_array_object_id,
                        &element_buffer_object_id);
+  const GLuint texture_id = LoadTexture(FLAGS_texture_filepath);
 
   // Create projection matrix.
   const GLfloat field_of_view = 45.0f;
