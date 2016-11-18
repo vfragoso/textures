@@ -54,6 +54,7 @@ uniform mat4 view;
 uniform mat4 projection;
 // Passing variables from shader to shader.
 out vec4 vertex_color;
+out vec2 texel;
 
 void main() {
   // Compute MVP.
@@ -61,4 +62,5 @@ void main() {
   // This was an example on how to pass variables from shader to shader.
   // vertex_color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
   vertex_color = vec4(passed_color, 1.0f);
+  texel = passed_texel;
 }

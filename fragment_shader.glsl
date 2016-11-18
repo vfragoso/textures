@@ -44,7 +44,11 @@
 // This was an example on how to pass variables from shader to shader.
 in vec4 vertex_color;
 out vec4 color;
+in vec2 texel;
+
+uniform sampler2D texture_sampler;
 
 void main() {
-  color = vertex_color;
+  // color = vertex_color;
+  color = texture(texture_sampler, texel);
 }

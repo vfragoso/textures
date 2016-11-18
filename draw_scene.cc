@@ -398,16 +398,24 @@ GLuint SetVertexBufferObject(const Model& model) {
   // A vertex right now contains 3 elements because we have x, y, z. But we can
   // add more information per vertex as we will see shortly.
   constexpr GLuint kNumElementsPerVertex = 3;
-  constexpr GLuint kStride = 2 * kNumElementsPerVertex * sizeof(vertices(0, 0));
+  constexpr GLuint kStride = 8 * sizeof(vertices(0, 0));
   const GLvoid* offset_ptr = nullptr;
-  glVertexAttribPointer(kIndex, kNumElementsPerVertex, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(kIndex, kNumElementsPerVertex, 
+                        GL_FLOAT, GL_FALSE,
                         kStride, offset_ptr);
   // Set as active our newly generated VBO.
   glEnableVertexAttribArray(kIndex);
   const GLvoid* offset_color = reinterpret_cast<GLvoid*>(3 * sizeof(vertices(0, 0)));
-  glVertexAttribPointer(1, kNumElementsPerVertex, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(1, kNumElementsPerVertex, 
+                        GL_FLOAT, GL_FALSE,
                         kStride, offset_color);
   glEnableVertexAttribArray(1);
+  // Configure the texels.
+  const GLvoid* offset_texel = 
+    reinterpret_cast<GLvoid*>(6 * sizeof(vertices(0, 0)));
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
+                        kStride, offset_texel);
+  glEnableVertexAttribArray(2);
   // Unbind buffer so that later we can use it.
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   return vertex_buffer_object_id;
@@ -438,6 +446,7 @@ void RenderScene(const wvu::ShaderProgram& shader_program,
                  const GLuint vertex_array_object_id,
                  const Eigen::Matrix4f& projection,
                  const GLfloat angle,
+                 const GLuint texture_id,
                  GLFWwindow* window) {
   // Clear the buffer.
   ClearTheFrameBuffer();
@@ -454,10 +463,12 @@ void RenderScene(const wvu::ShaderProgram& shader_program,
   Eigen::Matrix4f translation = 
     ComputeTranslation(Eigen::Vector3f(0.0f, 0.0f, -5.0f));
   Eigen::Matrix4f rotation = 
-      ComputeRotation(Eigen::Vector3f(1.0, 1.0, -1.0f).normalized(), angle);
+      ComputeRotation(Eigen::Vector3f(0.0, 1.0, 0.0f).normalized(), angle);
   Eigen::Matrix4f model = translation * rotation;
   std::cout << "Model: \n" << model << std::endl;
   Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
+  // Bind texture.
+  glBindTexture(GL_TEXTURE_2D, texture_id);
   // We do not create the projection matrix here because the projection 
   // matrix does not change.
   // Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
@@ -468,7 +479,7 @@ void RenderScene(const wvu::ShaderProgram& shader_program,
   // Draw the triangle.
   // Let OpenGL know what vertex array object we will use.
   glBindVertexArray(vertex_array_object_id);
-  // Set to GL_LINE instead of GL_FILL to visualize the poligons as wireframes.
+    // Set to GL_LINE instead of GL_FILL to visualize the poligons as wireframes.
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   // First argument specifies the primitive to use.
   // Second argument specifies the starting index in the VAO.
@@ -476,10 +487,11 @@ void RenderScene(const wvu::ShaderProgram& shader_program,
   // glDrawArrays(GL_TRIANGLE_STRIP, 0, 10);
 
   // Using EBOs.
-  glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
   
   // Let OpenGL know that we are done with our vertex array object.
   glBindVertexArray(0);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 }  // namespace
@@ -555,19 +567,19 @@ int main(int argc, char** argv) {
   // Vertex 0.
   vertices.block(0, 0, 3, 1) = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
   vertices.block(3, 0, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
-  vertices.block(6, 0, 2, 1) = Eigen::Vector2f(0, 1);
+  vertices.block(6, 0, 2, 1) = Eigen::Vector2f(0, 0);
   // Vertex 1.
   vertices.block(0, 1, 3, 1) = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
   vertices.block(3, 1, 3, 1) = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
-  vertices.block(6, 1, 2, 1) = Eigen::Vector2f(0, 0);
+  vertices.block(6, 1, 2, 1) = Eigen::Vector2f(0, 1);
   // Vertex 2.
   vertices.block(0, 2, 3, 1) = Eigen::Vector3f(1.0f, 1.0f, 0.0f);
   vertices.block(3, 2, 3, 1) = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
-  vertices.block(6, 2, 2, 1) = Eigen::Vector2f(1, 1);
+  vertices.block(6, 2, 2, 1) = Eigen::Vector2f(1, 0);
   // Vertex 3.
   vertices.block(0, 3, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
   vertices.block(3, 3, 3, 1) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
-  vertices.block(6, 3, 2, 1) = Eigen::Vector2f(1, 0);
+  vertices.block(6, 3, 2, 1) = Eigen::Vector2f(1, 1);
   std::vector<GLuint> indices = {
     0, 1, 3,  // First triangle.
     0, 3, 2,  // Second triangle.
@@ -598,7 +610,7 @@ int main(int argc, char** argv) {
     // Instead, use static_cast<type>(input argument).
     angle = rotation_speed * static_cast<GLfloat>(glfwGetTime()) * M_PI / 180.f;
     RenderScene(shader_program, vertex_array_object_id, 
-                projection_matrix, angle, window);
+                projection_matrix, angle, texture_id, window);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);
